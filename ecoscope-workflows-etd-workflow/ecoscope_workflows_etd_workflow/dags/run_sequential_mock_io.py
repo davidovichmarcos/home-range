@@ -30,7 +30,22 @@ get_subjectgroup_observations = create_func_magicmock(  # 🧪
 )  # 🧪
 from ecoscope.platform.tasks.groupby import set_groupers as set_groupers
 from ecoscope.platform.tasks.transformation import (
+    apply_reloc_coord_filter as apply_reloc_coord_filter,
+)
+from ecoscope.platform.tasks.transformation import (
     extract_spatial_grouper_feature_group_names as extract_spatial_grouper_feature_group_names,
+)
+from ecoscope_workflows_ext_custom.tasks.config import (
+    get_bounding_box as get_bounding_box,
+)
+from ecoscope_workflows_ext_custom.tasks.config import (
+    get_filter_point_coords as get_filter_point_coords,
+)
+from ecoscope_workflows_ext_custom.tasks.config import (
+    get_segment_filter as get_segment_filter,
+)
+from ecoscope_workflows_ext_custom.tasks.config import (
+    set_traj_filters as set_traj_filters,
 )
 
 get_spatial_features_group = create_func_magicmock(  # 🧪
@@ -46,9 +61,7 @@ from ecoscope.platform.tasks.config import (
 from ecoscope.platform.tasks.config import (
     set_etd_args_with_opacity as set_etd_args_with_opacity,
 )
-from ecoscope.platform.tasks.groupby import merge_df as merge_df
 from ecoscope.platform.tasks.groupby import split_groups as split_groups
-from ecoscope.platform.tasks.io import persist_df as persist_df
 from ecoscope.platform.tasks.io import persist_text as persist_text
 from ecoscope.platform.tasks.preprocessing import (
     process_relocations as process_relocations,
@@ -86,10 +99,12 @@ from ecoscope.platform.tasks.transformation import (
 from ecoscope.platform.tasks.transformation import (
     resolve_spatial_feature_groups_for_spatial_groupers as resolve_spatial_feature_groups_for_spatial_groupers,
 )
+from ecoscope_workflows_ext_custom.tasks.analysis import (
+    generate_etd_raster as generate_etd_raster,
+)
 from ecoscope_workflows_ext_custom.tasks.io import (
     persist_grouped_dfs_for_results_download as persist_grouped_dfs_for_results_download,
 )
-from ecoscope_workflows_ext_wd.tasks import generate_etd_raster as generate_etd_raster
 
 
 def main(params: dict[str, Any], validate_params_schema: bool = True):
@@ -170,6 +185,99 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             include_details=False,
             include_subjectsource_details=False,
             **(params.get("subject_observations") or {}),
+        )
+        .call()
+    )
+
+    subject_filters = (
+        task(set_traj_filters)
+        .validate()
+        .set_task_instance_id("subject_filters")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(**(params.get("subject_filters") or {}))
+        .call()
+    )
+
+    bounding_box = (
+        task(get_bounding_box)
+        .validate()
+        .set_task_instance_id("bounding_box")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(filters=subject_filters, **(params.get("bounding_box") or {}))
+        .call()
+    )
+
+    filter_point_coords = (
+        task(get_filter_point_coords)
+        .validate()
+        .set_task_instance_id("filter_point_coords")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(filters=subject_filters, **(params.get("filter_point_coords") or {}))
+        .call()
+    )
+
+    segment_filter = (
+        task(get_segment_filter)
+        .validate()
+        .set_task_instance_id("segment_filter")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(filters=subject_filters, **(params.get("segment_filter") or {}))
+        .call()
+    )
+
+    subject_obs_filtered = (
+        task(apply_reloc_coord_filter)
+        .validate()
+        .set_task_instance_id("subject_obs_filtered")
+        .handle_errors()
+        .with_tracing()
+        .skipif(
+            conditions=[
+                any_is_empty_df,
+                any_dependency_skipped,
+            ],
+            unpack_depth=1,
+        )
+        .partial(
+            df=subject_observations,
+            bounding_box=bounding_box,
+            filter_point_coords=None,
+            roi_gdf=None,
+            roi_name=None,
+            reset_index=False,
+            **(params.get("subject_obs_filtered") or {}),
         )
         .call()
     )
@@ -260,7 +368,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             unpack_depth=1,
         )
         .partial(
-            observations=subject_observations,
+            observations=subject_obs_filtered,
             relocs_columns=[
                 "groupby_col",
                 "fixtime",
@@ -270,11 +378,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
                 "extra__subject__subject_subtype",
                 "extra__subject__sex",
             ],
-            filter_point_coords=[
-                {"x": 180.0, "y": 90.0},
-                {"x": 0.0, "y": 0.0},
-                {"x": 1.0, "y": 1.0},
-            ],
+            filter_point_coords=filter_point_coords,
             **(params.get("subject_reloc") or {}),
         )
         .call()
@@ -293,7 +397,11 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(relocations=subject_reloc, **(params.get("subject_traj") or {}))
+        .partial(
+            relocations=subject_reloc,
+            trajectory_segment_filter=segment_filter,
+            **(params.get("subject_traj") or {}),
+        )
         .call()
     )
 
@@ -459,71 +567,6 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             combined_params=etd_args, **(params.get("etd_percentiles_grouped") or {})
         )
         .mapvalues(argnames=["trajectory_gdf"], argvalues=subject_traj_groups)
-    )
-
-    etd_percentiles = (
-        task(merge_df)
-        .validate()
-        .set_task_instance_id("etd_percentiles")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            iterables=etd_percentiles_grouped, **(params.get("etd_percentiles") or {})
-        )
-        .call()
-    )
-
-    persist_etd_pct_geoparquet = (
-        task(persist_df)
-        .validate()
-        .set_task_instance_id("persist_etd_pct_geoparquet")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            filetype="geoparquet",
-            filename="etd_home_range_percentiles",
-            df=etd_percentiles,
-            **(params.get("persist_etd_pct_geoparquet") or {}),
-        )
-        .call()
-    )
-
-    persist_etd_pct_csv = (
-        task(persist_df)
-        .validate()
-        .set_task_instance_id("persist_etd_pct_csv")
-        .handle_errors()
-        .with_tracing()
-        .skipif(
-            conditions=[
-                any_is_empty_df,
-                any_dependency_skipped,
-            ],
-            unpack_depth=1,
-        )
-        .partial(
-            root_path=os.environ["ECOSCOPE_WORKFLOWS_RESULTS"],
-            filetype="csv",
-            filename="etd_home_range_percentiles",
-            df=etd_percentiles,
-            **(params.get("persist_etd_pct_csv") or {}),
-        )
-        .call()
     )
 
     etd_raster = (
@@ -830,7 +873,16 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
             ],
             unpack_depth=1,
         )
-        .partial(**(params.get("etd_pct_table") or {}))
+        .partial(
+            columns=None,
+            table_config={
+                "enable_sorting": True,
+                "enable_filtering": True,
+                "enable_download": True,
+                "hide_header": False,
+            },
+            **(params.get("etd_pct_table") or {}),
+        )
         .mapvalues(argnames=["dataframe"], argvalues=etd_pct_table_columns)
     )
 

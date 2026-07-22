@@ -99,6 +99,78 @@
         }
       }
     },
+    "Filter Data": {
+      "type": "object",
+      "description": "",
+      "ecoscope:task_group": true,
+      "properties": {
+        "subject_filters": {
+          "additionalProperties": false,
+          "properties": {
+            "bounding_box": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/BoundingBox"
+                }
+              ],
+              "default": {
+                "min_y": -90.0,
+                "max_y": 90.0,
+                "min_x": -180.0,
+                "max_x": 180.0
+              },
+              "title": "Bounding Box",
+              "description": "Only include observations/events inside this bounding box.",
+              "ecoscope:advanced": true
+            },
+            "filter_point_coords": {
+              "default": [
+                {
+                  "y": 90.0,
+                  "x": 180.0
+                },
+                {
+                  "y": 0.0,
+                  "x": 0.0
+                },
+                {
+                  "y": 1.0,
+                  "x": 1.0
+                }
+              ],
+              "items": {
+                "$ref": "#/$defs/Coordinate"
+              },
+              "title": "Filter Exact Point Coordinates",
+              "type": "array",
+              "description": "Exclude observations/events at these exact coordinates.",
+              "ecoscope:advanced": true
+            },
+            "trajectory_segment_filter": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/TrajectorySegmentFilter"
+                }
+              ],
+              "default": {
+                "min_length_meters": 0.001,
+                "max_length_meters": 100000,
+                "min_time_secs": 1,
+                "max_time_secs": 172800,
+                "min_speed_kmhr": 0.01,
+                "max_speed_kmhr": 500
+              },
+              "title": "Trajectory Filter",
+              "description": "Drop trajectory segments outside these length/time/speed bounds.",
+              "ecoscope:advanced": true
+            }
+          },
+          "type": "object",
+          "required": [],
+          "title": ""
+        }
+      }
+    },
     "Group Data": {
       "type": "object",
       "description": "Optionally group the data by subject, time period, or spatial feature group to compute ETD separately per group.",
@@ -142,32 +214,6 @@
           "title": ""
         }
       }
-    },
-    "subject_traj": {
-      "additionalProperties": false,
-      "properties": {
-        "trajectory_segment_filter": {
-          "allOf": [
-            {
-              "$ref": "#/$defs/TrajectorySegmentFilter"
-            }
-          ],
-          "default": {
-            "min_length_meters": 0.001,
-            "max_length_meters": 100000,
-            "min_time_secs": 1,
-            "max_time_secs": 172800,
-            "min_speed_kmhr": 0.01,
-            "max_speed_kmhr": 500
-          },
-          "title": " ",
-          "description": "Filter track data by setting limits on track segment length, duration, and speed. Segments outside these bounds are removed, reducing noise and to focus on meaningful movement patterns.",
-          "ecoscope:advanced": true
-        }
-      },
-      "required": [],
-      "type": "object",
-      "title": "Convert Relocations to Trajectory"
     },
     "base_map_defs": {
       "additionalProperties": false,
@@ -462,8 +508,6 @@
           "items": {
             "enum": [
               "csv",
-              "gpkg",
-              "geoparquet",
               "parquet"
             ],
             "type": "string"
@@ -479,47 +523,6 @@
       "type": "object",
       "title": "Export Percentiles",
       "description": "File formats to export the ETD percentile-area data in."
-    },
-    "ETD Percentile Table": {
-      "type": "object",
-      "description": "Percentile / area table for the ETD home range, as a dashboard widget.",
-      "ecoscope:task_group": true,
-      "properties": {
-        "etd_pct_table": {
-          "additionalProperties": false,
-          "properties": {
-            "columns": {
-              "default": null,
-              "items": {
-                "type": "string"
-              },
-              "title": "Columns",
-              "type": "array",
-              "description": "The list of dataframe columns to render in the table. Leave empty to render all columns",
-              "ecoscope:advanced": true
-            },
-            "table_config": {
-              "allOf": [
-                {
-                  "$ref": "#/$defs/TableConfig"
-                }
-              ],
-              "default": {
-                "enable_sorting": true,
-                "enable_filtering": true,
-                "enable_download": true,
-                "hide_header": false
-              },
-              "title": "Table Config",
-              "description": "Configuration options for the table.",
-              "ecoscope:advanced": true
-            }
-          },
-          "required": [],
-          "type": "object",
-          "title": ""
-        }
-      }
     }
   },
   "$defs": {
@@ -562,6 +565,104 @@
         "utc"
       ],
       "title": "TimezoneInfo",
+      "type": "object"
+    },
+    "BoundingBox": {
+      "properties": {
+        "min_y": {
+          "default": -90.0,
+          "ecoscope:advanced": true,
+          "title": "Min Latitude",
+          "type": "number"
+        },
+        "max_y": {
+          "default": 90.0,
+          "ecoscope:advanced": true,
+          "title": "Max Latitude",
+          "type": "number"
+        },
+        "min_x": {
+          "default": -180.0,
+          "ecoscope:advanced": true,
+          "title": "Min Longitude",
+          "type": "number"
+        },
+        "max_x": {
+          "default": 180.0,
+          "ecoscope:advanced": true,
+          "title": "Max Longitude",
+          "type": "number"
+        }
+      },
+      "title": "BoundingBox",
+      "type": "object"
+    },
+    "Coordinate": {
+      "properties": {
+        "y": {
+          "description": "Example -0.15293",
+          "title": "Latitude",
+          "type": "number"
+        },
+        "x": {
+          "description": "Example 37.30906",
+          "title": "Longitude",
+          "type": "number"
+        }
+      },
+      "required": [
+        "y",
+        "x"
+      ],
+      "title": "Coordinate",
+      "type": "object"
+    },
+    "TrajectorySegmentFilter": {
+      "properties": {
+        "min_length_meters": {
+          "default": 0.001,
+          "ecoscope:advanced": true,
+          "minimum": 0.001,
+          "title": "Minimum Segment Length (Meters)",
+          "type": "number"
+        },
+        "max_length_meters": {
+          "default": 100000,
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.001,
+          "title": "Maximum Segment Length (Meters)",
+          "type": "number"
+        },
+        "min_time_secs": {
+          "default": 1,
+          "ecoscope:advanced": true,
+          "minimum": 1,
+          "title": "Minimum Segment Duration (Seconds)",
+          "type": "number"
+        },
+        "max_time_secs": {
+          "default": 172800,
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 1,
+          "title": "Maximum Segment Duration (Seconds)",
+          "type": "number"
+        },
+        "min_speed_kmhr": {
+          "default": 0.01,
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.001,
+          "title": "Minimum Segment Speed (Kilometers per Hour)",
+          "type": "number"
+        },
+        "max_speed_kmhr": {
+          "default": 500,
+          "ecoscope:advanced": true,
+          "exclusiveMinimum": 0.001,
+          "title": "Maximum Segment Speed (Kilometers per Hour)",
+          "type": "number"
+        }
+      },
+      "title": "TrajectorySegmentFilter",
       "type": "object"
     },
     "SpatialGrouper": {
@@ -651,54 +752,6 @@
       "title": "Category",
       "type": "object"
     },
-    "TrajectorySegmentFilter": {
-      "properties": {
-        "min_length_meters": {
-          "default": 0.001,
-          "ecoscope:advanced": true,
-          "minimum": 0.001,
-          "title": "Minimum Segment Length (Meters)",
-          "type": "number"
-        },
-        "max_length_meters": {
-          "default": 100000,
-          "ecoscope:advanced": true,
-          "exclusiveMinimum": 0.001,
-          "title": "Maximum Segment Length (Meters)",
-          "type": "number"
-        },
-        "min_time_secs": {
-          "default": 1,
-          "ecoscope:advanced": true,
-          "minimum": 1,
-          "title": "Minimum Segment Duration (Seconds)",
-          "type": "number"
-        },
-        "max_time_secs": {
-          "default": 172800,
-          "ecoscope:advanced": true,
-          "exclusiveMinimum": 1,
-          "title": "Maximum Segment Duration (Seconds)",
-          "type": "number"
-        },
-        "min_speed_kmhr": {
-          "default": 0.01,
-          "ecoscope:advanced": true,
-          "exclusiveMinimum": 0.001,
-          "title": "Minimum Segment Speed (Kilometers per Hour)",
-          "type": "number"
-        },
-        "max_speed_kmhr": {
-          "default": 500,
-          "ecoscope:advanced": true,
-          "exclusiveMinimum": 0.001,
-          "title": "Maximum Segment Speed (Kilometers per Hour)",
-          "type": "number"
-        }
-      },
-      "title": "TrajectorySegmentFilter",
-      "type": "object"
-    },
     "AutoScaleGridCellSize": {
       "properties": {
         "auto_scale_or_custom": {
@@ -740,32 +793,6 @@
       },
       "title": "Customize",
       "type": "object"
-    },
-    "TableConfig": {
-      "properties": {
-        "enable_sorting": {
-          "default": true,
-          "title": "Enable Sorting",
-          "type": "boolean"
-        },
-        "enable_filtering": {
-          "default": false,
-          "title": "Enable Filtering",
-          "type": "boolean"
-        },
-        "enable_download": {
-          "default": false,
-          "title": "Enable Download",
-          "type": "boolean"
-        },
-        "hide_header": {
-          "default": false,
-          "title": "Hide Header",
-          "type": "boolean"
-        }
-      },
-      "title": "TableConfig",
-      "type": "object"
     }
   },
   "uiSchema": {
@@ -782,6 +809,15 @@
         "timezone"
       ]
     },
+    "Filter Data": {
+      "subject_filters": {
+        "ui:order": [
+          "bounding_box",
+          "filter_point_coords",
+          "trajectory_segment_filter"
+        ]
+      }
+    },
     "Elliptical Time-Density (ETD)": {
       "etd_args": {
         "ui:order": [
@@ -794,25 +830,16 @@
         ]
       }
     },
-    "ETD Percentile Table": {
-      "etd_pct_table": {
-        "ui:order": [
-          "columns",
-          "table_config"
-        ]
-      }
-    },
     "ui:order": [
       "workflow_details",
       "er_client",
       "time_range",
       "Subject Group",
+      "Filter Data",
       "Group Data",
-      "subject_traj",
       "base_map_defs",
       "Elliptical Time-Density (ETD)",
-      "persist_etd_pct_grouped",
-      "ETD Percentile Table"
+      "persist_etd_pct_grouped"
     ],
     "Group Data": {
       "groupers": {

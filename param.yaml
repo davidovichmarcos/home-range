@@ -3,7 +3,7 @@ workflow_details:
   description: ""
 er_client:
   data_source:
-    name: mep
+    name: mep_dev
 time_range:
   since: "2000-01-01T00:00:00.000Z"
   until: "2020-01-01T00:00:00.000Z"
