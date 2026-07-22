@@ -1,18 +1,100 @@
-default:
-  name: Default
-  description: ETD home range for the Elephants subject group, grouped by subject, 2000-01-01 to 2020-01-01.
+base:
+  name: Base Test Case
+  mock_io: false
   params:
     workflow_details:
       name: "Elephants ETD Home Range"
-      description: "Test run of the ETD home range workflow."
+      description: "ETD home range for the Elephants subject group, grouped by subject."
     er_client:
       data_source:
-        name: mep
+        name: mep_dev
     time_range:
       since: "2000-01-01T00:00:00.000Z"
       until: "2020-01-01T00:00:00.000Z"
     subject_observations:
       subject_group_name: "Elephants"
+    groupers:
+      groupers:
+        - index_name: subject_name
+
+no-groupers:
+  name: No Groupers (single pooled group)
+  mock_io: true
+  params:
+    workflow_details:
+      name: "Elephants ETD Home Range"
+      description: "ETD home range with no groupers, pooling all subjects together."
+    er_client:
+      data_source:
+        name: mep_dev
+    time_range:
+      since: "2000-01-01T00:00:00.000Z"
+      until: "2020-01-01T00:00:00.000Z"
+    subject_observations:
+      subject_group_name: "Elephants"
+    groupers:
+      groupers: []
+
+temporal-grouper:
+  name: Temporal Grouper by Month
+  mock_io: true
+  params:
+    workflow_details:
+      name: "Elephants ETD Home Range"
+      description: "ETD home range grouped by month."
+    er_client:
+      data_source:
+        name: mep_dev
+    time_range:
+      since: "2000-01-01T00:00:00.000Z"
+      until: "2020-01-01T00:00:00.000Z"
+    subject_observations:
+      subject_group_name: "Elephants"
+    groupers:
+      groupers:
+        - temporal_index: "%Y-%m"
+
+spatial-grouper:
+  name: Spatial Grouper by Feature Group
+  mock_io: true
+  params:
+    workflow_details:
+      name: "Elephants ETD Home Range"
+      description: "ETD home range grouped by spatial feature group."
+    er_client:
+      data_source:
+        name: mep_dev
+    time_range:
+      since: "2000-01-01T00:00:00.000Z"
+      until: "2020-01-01T00:00:00.000Z"
+    subject_observations:
+      subject_group_name: "Elephants"
+    groupers:
+      groupers:
+        - spatial_index_name: "SpatialGrouperTest"
+
+with-bounding-box:
+  name: Filter Data with Bounding Box
+  mock_io: true
+  params:
+    workflow_details:
+      name: "Elephants ETD Home Range"
+      description: "ETD home range filtered to a bounding box over Kenya."
+    er_client:
+      data_source:
+        name: mep_dev
+    time_range:
+      since: "2000-01-01T00:00:00.000Z"
+      until: "2020-01-01T00:00:00.000Z"
+    subject_observations:
+      subject_group_name: "Elephants"
+    subject_filters:
+      bounding_box:
+        min_y: -4.7
+        max_y: -0.1
+        min_x: 33.6
+        max_x: 40.6
+      filter_point_coords: []
     groupers:
       groupers:
         - index_name: subject_name
