@@ -697,7 +697,7 @@ def main(params: dict[str, Any], validate_params_schema: bool = True):
                 "opacity": etd_opacity,
             },
             legend={
-                "title": "Home Range Percentiles",
+                "title": "Time Spent",
                 "label_column": "Percentile",
                 "label_suffix": " %",
                 "color_column": "percentile_color",

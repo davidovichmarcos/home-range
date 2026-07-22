@@ -379,7 +379,7 @@ workflow:
             get_line_width: 0
             opacity: ${{ workflow.etd_opacity.return }}
           legend:
-            title: "Home Range Percentiles"
+            title: "Time Spent"
             label_column: Percentile
             label_suffix: " %"
             color_column: percentile_color
